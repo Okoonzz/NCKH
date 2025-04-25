@@ -1,0 +1,382 @@
+{
+  "behavior_summary": {
+    "file_created": [],
+    "file_deleted": [],
+    "file_read": [],
+    "file_recreated": [],
+    "file_exists": [],
+    "file_opened": [
+      "C:\\Windows\\SysWOW64\\ntdll.dll"
+    ],
+    "regkey_opened": [
+      "HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control",
+      "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\OLE",
+      "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\OLEAUT",
+      "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\OLE\\Tracing",
+      "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\RestartManager"
+    ],
+    "regkey_read": [
+      "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\OLE\\PageAllocatorSystemHeapIsPrivate",
+      "HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Control\\WaitToKillServiceTimeout",
+      "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\OLE\\PageAllocatorUseSystemHeap"
+    ],
+    "regkey_written": [],
+    "dll_loaded": [
+      "kernel32",
+      "Iphlpapi.dll",
+      "api-ms-win-core-fibers-l1-1-1",
+      "api-ms-win-core-localization-l1-2-1",
+      "Shell32.dll",
+      "kernel32.dll",
+      "OleAut32.dll",
+      "Netapi32.dll",
+      "Rstrtmgr.dll",
+      "Advapi32.dll",
+      "ntdll.dll",
+      "Ole32.dll",
+      "Shlwapi.dll",
+      "ws2_32.dll",
+      "api-ms-win-core-synch-l1-2-0"
+    ],
+    "executed_commands": [],
+    "directory_created": [],
+    "mutex": [],
+    "processes_created": [],
+    "resolves_host": []
+  },
+  "dropped_files": [],
+  "api_statistics": {
+    "2244": {
+      "GetFileSize": 1,
+      "NtProtectVirtualMemory": 83,
+      "RegCloseKey": 3,
+      "NtAllocateVirtualMemory": 3,
+      "NtMapViewOfSection": 1,
+      "GetSystemInfo": 1,
+      "GetSystemDirectoryW": 1,
+      "LdrGetProcedureAddress": 133,
+      "RegOpenKeyExW": 6,
+      "SetUnhandledExceptionFilter": 1,
+      "__exception__": 1,
+      "NtCreateFile": 1,
+      "GetSystemTimeAsFileTime": 1,
+      "RegOpenKeyExA": 2,
+      "LdrLoadDll": 19,
+      "NtCreateSection": 1,
+      "LdrGetDllHandle": 1,
+      "RegQueryValueExW": 4,
+      "NtOpenDirectoryObject": 1
+    }
+  },
+  "network": {
+    "http": [
+      {
+        "count": 1,
+        "body": "",
+        "uri": "http://www.msftncsi.com/ncsi.txt",
+        "user-agent": "Microsoft NCSI",
+        "method": "GET",
+        "host": "www.msftncsi.com",
+        "version": "1.1",
+        "path": "/ncsi.txt",
+        "data": "GET /ncsi.txt HTTP/1.1\r\nConnection: Close\r\nUser-Agent: Microsoft NCSI\r\nHost: www.msftncsi.com\r\n\r\n",
+        "port": 80
+      }
+    ],
+    "tcp": [
+      {
+        "src": "192.168.56.101",
+        "dst": "125.234.51.99",
+        "offset": 1294,
+        "time": 5.654904842376709,
+        "dport": 80,
+        "sport": 49161
+      }
+    ],
+    "udp": [
+      {
+        "src": "192.168.56.101",
+        "dst": "192.168.56.255",
+        "offset": 2060,
+        "time": 5.929572820663452,
+        "dport": 137,
+        "sport": 137
+      },
+      {
+        "src": "192.168.56.101",
+        "dst": "224.0.0.252",
+        "offset": 4704,
+        "time": 4.40650200843811,
+        "dport": 5355,
+        "sport": 50233
+      },
+      {
+        "src": "192.168.56.101",
+        "dst": "224.0.0.252",
+        "offset": 5032,
+        "time": 5.278486013412476,
+        "dport": 5355,
+        "sport": 52790
+      },
+      {
+        "src": "192.168.56.101",
+        "dst": "224.0.0.252",
+        "offset": 5352,
+        "time": 3.8976478576660156,
+        "dport": 5355,
+        "sport": 53526
+      },
+      {
+        "src": "192.168.56.101",
+        "dst": "224.0.0.252",
+        "offset": 5672,
+        "time": 2.893040895462036,
+        "dport": 5355,
+        "sport": 54795
+      },
+      {
+        "src": "192.168.56.101",
+        "dst": "224.0.0.252",
+        "offset": 6000,
+        "time": 5.86141300201416,
+        "dport": 5355,
+        "sport": 58224
+      },
+      {
+        "src": "192.168.56.101",
+        "dst": "224.0.0.252",
+        "offset": 6328,
+        "time": 5.865585803985596,
+        "dport": 5355,
+        "sport": 64762
+      },
+      {
+        "src": "192.168.56.101",
+        "dst": "8.8.8.8",
+        "offset": 6648,
+        "time": 5.602454900741577,
+        "dport": 53,
+        "sport": 55116
+      },
+      {
+        "src": "192.168.56.101",
+        "dst": "8.8.8.8",
+        "offset": 6938,
+        "time": 5.862132787704468,
+        "dport": 53,
+        "sport": 62139
+      }
+    ],
+    "dns": [
+      {
+        "type": "A",
+        "request": "www.msftncsi.com",
+        "answers": [
+          {
+            "data": "125.234.51.56",
+            "type": "A"
+          },
+          {
+            "data": "www.msftncsi.com.edgesuite.net",
+            "type": "CNAME"
+          },
+          {
+            "data": "125.234.51.99",
+            "type": "A"
+          },
+          {
+            "data": "a1961.g2.akamai.net",
+            "type": "CNAME"
+          }
+        ]
+      },
+      {
+        "type": "A",
+        "request": "teredo.ipv6.microsoft.com",
+        "answers": []
+      }
+    ],
+    "hosts": [
+      "125.234.51.99",
+      "8.8.8.8"
+    ],
+    "icmp": [],
+    "smtp": []
+  },
+  "static_imports": [
+    "LoadLibraryA",
+    "GetProcAddress",
+    "CloseHandle",
+    "GetLocalTime",
+    "LocalFree",
+    "ExitProcess",
+    "lstrcpyW",
+    "CreateToolhelp32Snapshot",
+    "Process32NextW",
+    "Process32FirstW",
+    "WriteConsoleW",
+    "DecodePointer",
+    "EncodePointer",
+    "FlushFileBuffers",
+    "SetFilePointerEx",
+    "GetConsoleMode",
+    "UnhandledExceptionFilter",
+    "SetUnhandledExceptionFilter",
+    "GetCurrentProcess",
+    "TerminateProcess",
+    "IsProcessorFeaturePresent",
+    "QueryPerformanceCounter",
+    "GetCurrentProcessId",
+    "GetCurrentThreadId",
+    "GetSystemTimeAsFileTime",
+    "InitializeSListHead",
+    "IsDebuggerPresent",
+    "GetStartupInfoW",
+    "GetModuleHandleW",
+    "RaiseException",
+    "RtlUnwind",
+    "GetLastError",
+    "SetLastError",
+    "EnterCriticalSection",
+    "LeaveCriticalSection",
+    "DeleteCriticalSection",
+    "InitializeCriticalSectionAndSpinCount",
+    "TlsAlloc",
+    "TlsGetValue",
+    "TlsSetValue",
+    "TlsFree",
+    "FreeLibrary",
+    "LoadLibraryExW",
+    "GetModuleHandleExW",
+    "GetStdHandle",
+    "WriteFile",
+    "GetModuleFileNameA",
+    "MultiByteToWideChar",
+    "WideCharToMultiByte",
+    "GetACP",
+    "HeapFree",
+    "HeapAlloc",
+    "LCMapStringW",
+    "GetFileType",
+    "FindClose",
+    "FindFirstFileExA",
+    "FindNextFileA",
+    "IsValidCodePage",
+    "GetOEMCP",
+    "GetCPInfo",
+    "GetCommandLineA",
+    "GetCommandLineW",
+    "GetEnvironmentStringsW",
+    "FreeEnvironmentStringsW",
+    "SetStdHandle",
+    "GetStringTypeW",
+    "GetProcessHeap",
+    "HeapSize",
+    "HeapReAlloc",
+    "GetConsoleCP",
+    "CreateFileW",
+    "wsprintfW",
+    "WSAGetLastError",
+    "htons",
+    "inet_ntoa"
+  ],
+  "signatures_ttp": {
+    "T1045": "Software Packing"
+  },
+  "processes": [
+    {
+      "name": "lsass.exe",
+      "path": "C:\\Windows\\System32\\lsass.exe",
+      "pid": 484,
+      "cmdline": "C:\\Windows\\system32\\lsass.exe",
+      "modules": [
+        "lsass.exe",
+        "ntdll.dll",
+        "kernel32.dll",
+        "KERNELBASE.dll",
+        "msvcrt.dll",
+        "RPCRT4.dll",
+        "SspiSrv.dll",
+        "lsasrv.dll",
+        "sechost.dll",
+        "SspiCli.dll",
+        "ADVAPI32.dll",
+        "USER32.dll",
+        "GDI32.dll",
+        "LPK.dll",
+        "USP10.dll",
+        "SAMSRV.dll",
+        "cryptdll.dll",
+        "MSASN1.dll",
+        "wevtapi.dll",
+        "IMM32.DLL",
+        "MSCTF.dll",
+        "cngaudit.dll",
+        "AUTHZ.dll",
+        "ncrypt.dll",
+        "bcrypt.dll",
+        "msprivs.DLL",
+        "netjoin.dll",
+        "negoexts.DLL",
+        "Secur32.dll",
+        "cryptbase.dll",
+        "kerberos.DLL",
+        "CRYPTSP.dll",
+        "WS2_32.dll",
+        "NSI.dll",
+        "mswsock.dll",
+        "wship6.dll",
+        "msv1_0.DLL",
+        "netlogon.DLL",
+        "DNSAPI.dll",
+        "logoncli.dll",
+        "schannel.DLL",
+        "CRYPT32.dll",
+        "wdigest.DLL",
+        "rsaenh.dll",
+        "tspkg.DLL",
+        "pku2u.DLL",
+        "bcryptprimitives.dll",
+        "RpcRtRemote.dll",
+        "efslsaext.dll",
+        "WINSTA.dll",
+        "scecli.DLL",
+        "credssp.dll",
+        "IPHLPAPI.DLL",
+        "WINNSI.DLL",
+        "netutils.dll",
+        "USERENV.dll",
+        "profapi.dll",
+        "wshtcpip.dll",
+        "monitor-x64.dll"
+      ]
+    },
+    {
+      "name": "d9243af49f96c8b66715287d0dc26dbd82eab8570d5f20629ddf9e5fe06c051c.exe",
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\d9243af49f96c8b66715287d0dc26dbd82eab8570d5f20629ddf9e5fe06c051c.exe",
+      "pid": 2244,
+      "cmdline": "\"C:\\Users\\Administrator\\AppData\\Local\\Temp\\d9243af49f96c8b66715287d0dc26dbd82eab8570d5f20629ddf9e5fe06c051c.exe\" ",
+      "modules": [
+        "d9243af49f96c8b66715287d0dc26dbd82eab8570d5f20629ddf9e5fe06c051c.exe",
+        "ntdll.dll",
+        "kernel32.dll",
+        "KERNELBASE.dll",
+        "USER32.dll",
+        "GDI32.dll",
+        "LPK.dll",
+        "USP10.dll",
+        "msvcrt.dll",
+        "ADVAPI32.dll",
+        "sechost.dll",
+        "RPCRT4.dll",
+        "SspiCli.dll",
+        "CRYPTBASE.dll",
+        "WS2_32.dll",
+        "NSI.dll",
+        "IMM32.DLL",
+        "MSCTF.dll",
+        "monitor-x86.dll"
+      ]
+    }
+  ]
+}
