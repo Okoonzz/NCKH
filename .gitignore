@@ -1,0 +1,8 @@
+cuckoo_reports/
+cuckoo_benign_reports/
+__pycache__/
+data/__pycache__/
+model/__pycache__/
+example
+reports/benign/
+reports/ransomware/
