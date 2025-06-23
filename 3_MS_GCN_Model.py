@@ -69,12 +69,6 @@ class GraphFileDataset(Dataset):
         if torch.isnan(data.x).any() or torch.isinf(data.x).any():
             data.x = torch.nan_to_num(data.x, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # 2) Scale numeric feature cuối cùng (1 chiều)
-        in_ch = data.x.size(1)
-        numeric_start = in_ch - self.max_numeric_features
-        numeric_end   = in_ch
-        data.x[:, numeric_start:numeric_end] /= self.scale_factor
-
         # Gán lại label chắc chắn đúng
         data.y = torch.tensor([lab], dtype=torch.long)
         return data
