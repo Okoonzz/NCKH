@@ -54,9 +54,6 @@ class GraphFileDataset(Dataset):
                     continue
                 self.file_list.append((os.path.join(folder, fname), lab))
 
-        # Bây giờ chỉ có 1 chiều numeric (size hoặc severity)
-        self.max_numeric_features = 1
-        self.scale_factor = 1e6  # chia cho 1e6 để scale xuống
 
     def __len__(self):
         return len(self.file_list)
@@ -67,6 +64,7 @@ class GraphFileDataset(Dataset):
 
         # 1) Kiểm tra NaN/Inf trong x
         if torch.isnan(data.x).any() or torch.isinf(data.x).any():
+            print(f"Warning: NaN/Inf found in {path}. Replacing with zeros.")
             data.x = torch.nan_to_num(data.x, nan=0.0, posinf=0.0, neginf=0.0)
 
         # Gán lại label chắc chắn đúng
