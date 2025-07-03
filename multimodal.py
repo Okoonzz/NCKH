@@ -1,4 +1,6 @@
-import os, json, torch, matplotlib.pyplot as plt
+import os
+import json
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, Subset
@@ -7,6 +9,7 @@ from torch_geometric.nn import GCNConv, global_mean_pool, BatchNorm
 from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.model_selection import StratifiedShuffleSplit
 
+# xLSTM imports
 from xlstm import (
     xLSTMBlockStack, xLSTMBlockStackConfig,
     mLSTMBlockConfig, mLSTMLayerConfig,
@@ -14,209 +17,321 @@ from xlstm import (
     FeedForwardConfig
 )
 
-# ───────────────────────────────────────────────────────────────
-# 1. Dataset ----------------------------------------------------
-# ───────────────────────────────────────────────────────────────
-def load_json(p):
-    with open(p,'r',encoding='utf-8',errors='ignore') as f: return json.load(f)
 
 class MultiModalDataset(Dataset):
-    def __init__(self,json_root,pt_root,max_len=1500):
-        self.samples=[]; self.vocab={'<PAD>':0,'<UNK>':1}; idx=2; self.max_len=max_len
-        mapping=[(os.path.join(json_root,'json-atb-benign-507'),
-                  os.path.join(pt_root,'benign'),0),
-                 (os.path.join(json_root,'ransom-5xx-new','ransomware'),
-                  os.path.join(pt_root,'ransomware'),1)]
-        for jdir,pdir,lbl in mapping:
-            if not (os.path.isdir(jdir) and os.path.isdir(pdir)): continue
-            for fn in os.listdir(jdir):
-                if not fn.endswith('.json'): continue
-                sid=fn[:-5]; jpath=os.path.join(jdir,fn); pt=os.path.join(pdir,f'{sid}.pt')
-                if not os.path.isfile(pt): continue
-                feat=load_json(jpath); toks=[]
-                toks += [f"api:{c.get('api','')}" for c in feat.get('api_call_sequence',[])[:1000]]
-                for ft,vals in feat.get('behavior_summary',{}).items(): toks+=[f"feature:{ft}:{v}" for v in vals]
-                for d in feat.get('dropped_files',[]): toks.append(f"dropped_file:{d if not isinstance(d,dict) else d.get('filepath','')}")
-                toks += [f"signature:{s.get('name','')}" for s in feat.get('signatures',[])]
-                toks += [f"process:{p.get('name','')}"   for p in feat.get('processes',[])]
-                for proto,es in feat.get('network',{}).items():
-                    for e in es:
-                        if isinstance(e,dict):
-                            toks.append(f"network:{proto}:{e.get('dst') or e.get('dst_ip','')}:{e.get('dst_port') or e.get('port','')}")
-                        else: toks.append(f"network:{proto}:{e}")
-                for t in toks:
-                    if t not in self.vocab: self.vocab[t]=idx; idx+=1
-                self.samples.append((pt,toks,lbl))
-        print(f"Dataset: {len(self.samples)} samples | Vocab={len(self.vocab)}")
+    def __init__(self, json_root, pt_root, max_seq_len=1500,
+                 vocab=None, vocab_cache_path=None):
+        self.max_len = max_seq_len
+        self.samples = []
 
-    def __len__(self): return len(self.samples)
-    def __getitem__(self,i):
-        pt,toks,lbl=self.samples[i]
-        g=torch.load(pt,weights_only=False)
-        idxs=[self.vocab.get(t,self.vocab['<UNK>']) for t in toks]
-        idxs = (idxs + [0]*self.max_len)[:self.max_len]
-        return g, torch.tensor(idxs), torch.tensor(lbl,dtype=torch.float32)
+        # Nếu đã có vocab truyền vào, reuse; nếu không, tạo mới
+        if vocab is not None:
+            self.vocab = vocab
+            next_idx = max(self.vocab.values()) + 1
+        else:
+            self.vocab = {'<PAD>': 0, '<UNK>': 1}
+            next_idx = 2
+
+        mapping = [
+            (os.path.join(json_root, 'json-atb-benign-507'),os.path.join(pt_root, 'benign'), 0),
+            (os.path.join(json_root, 'ransom-5xx-new', 'ransomware'),os.path.join(pt_root, 'ransomware'), 1)
+        ]
+
+        for jdir, pdir, label in mapping:
+            if not os.path.isdir(jdir) or not os.path.isdir(pdir):
+                continue
+            for fname in os.listdir(jdir):
+                if not fname.endswith('.json'):
+                    continue
+                sid = os.path.splitext(fname)[0]
+                jpath = os.path.join(jdir, fname)
+                ppath = os.path.join(pdir, f"{sid}.pt")
+                if not os.path.isfile(ppath):
+                    continue
+
+                feat = self._load_json(jpath)
+                toks = self._extract_tokens(feat)
+
+                # Mở rộng vocab chỉ khi đang build mới
+                if vocab is None:
+                    for t in toks:
+                        if t not in self.vocab:
+                            self.vocab[t] = next_idx
+                            next_idx += 1
+
+                self.samples.append((ppath, toks, label))
+
+        # Nếu tạo vocab mới và có yêu cầu cache, lưu ra file
+        if vocab is None and vocab_cache_path is not None:
+            os.makedirs(os.path.dirname(vocab_cache_path), exist_ok=True)
+            with open(vocab_cache_path, 'w', encoding='utf-8') as f:
+                json.dump(self.vocab, f, ensure_ascii=False, indent=2)
+
+    def _load_json(self, path):
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            return json.load(f)
+
+    def _extract_tokens(self, feat):
+        toks = []
+        # API sequence
+        for call in feat.get('api_call_sequence', [])[:1000]:
+            toks.append(f"api:{call.get('api','')}")
+        # Behavior summary
+        for ft, vals in feat.get('behavior_summary', {}).items():
+            for v in vals:
+                toks.append(f"feature:{ft}:{v}")
+        # Dropped files
+        for d in feat.get('dropped_files', []):
+            path = d if not isinstance(d, dict) else d.get('filepath','')
+            toks.append(f"dropped_file:{path}")
+        # Signatures
+        for sig in feat.get('signatures', []):
+            toks.append(f"signature:{sig.get('name','')}")
+        # Processes
+        for p in feat.get('processes', []):
+            toks.append(f"process:{p.get('name','')}")
+        # Network
+        for proto, ents in feat.get('network', {}).items():
+            for e in ents:
+                if isinstance(e, dict):
+                    dst = e.get('dst') or e.get('dst_ip','')
+                    port = e.get('dst_port') or e.get('port','')
+                    toks.append(f"network:{proto}:{dst}:{port}")
+                else:
+                    toks.append(f"network:{proto}:{e}")
+        return toks
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, i):
+        ppath, toks, label = self.samples[i]
+        data = torch.load(ppath, weights_only=False)
+        idxs = [self.vocab.get(t, self.vocab['<UNK>']) for t in toks]
+        if len(idxs) < self.max_len:
+            idxs += [self.vocab['<PAD>']] * (self.max_len - len(idxs))
+        else:
+            idxs = idxs[:self.max_len]
+        seq = torch.tensor(idxs, dtype=torch.long)
+        return data, seq, torch.tensor(label, dtype=torch.float32)
+
 
 def collate_fn(batch):
-    gs,seqs,labs=zip(*batch)
-    return Batch.from_data_list(gs), torch.stack(seqs), torch.stack(labs)
+    graphs, seqs, labels = zip(*batch)
+    return Batch.from_data_list(graphs), torch.stack(seqs), torch.stack(labels)
 
-# ───────────────────────────────────────────────────────────────
-# 2. Encoders & Classifier --------------------------------------
-# ───────────────────────────────────────────────────────────────
+
 class GCNEncoder(nn.Module):
-    def __init__(self,d_in,hid=64,drop=0.3):
+    def __init__(self, in_feats, hidden=64, drop=0.3):
         super().__init__()
-        self.c1, self.b1 = GCNConv(d_in,hid), BatchNorm(hid)
-        self.c2, self.b2 = GCNConv(hid,hid),  BatchNorm(hid)
-        self.drop=drop
-    def forward(self,x,e,b):
-        x=F.relu(self.b1(self.c1(x,e))); x=F.dropout(x,self.drop,self.training)
-        x=F.relu(self.b2(self.c2(x,e))); x=F.dropout(x,self.drop,self.training)
-        return global_mean_pool(x,b)
+        self.conv1 = GCNConv(in_feats, hidden)
+        self.bn1 = BatchNorm(hidden)
+        self.conv2 = GCNConv(hidden, hidden)
+        self.bn2 = BatchNorm(hidden)
+        self.drop = drop
+        self.output_dim = hidden
+
+    def forward(self, x, ei, batch):
+        x = F.relu(self.bn1(self.conv1(x, ei)))
+        x = F.dropout(x, self.drop, training=self.training)
+        x = F.relu(self.bn2(self.conv2(x, ei)))
+        x = F.dropout(x, self.drop, training=self.training)
+        return global_mean_pool(x, batch)
+
 
 class xLSTMEncoder(nn.Module):
-    def __init__(self,vocab,emb=128,seq_len=1500,blocks=1):
+    def __init__(self, vocab_size, embed=128, seq_len=1500, blocks=1):
         super().__init__()
-        self.embed=nn.Embedding(vocab,emb,padding_idx=0)
-        cfg=xLSTMBlockStackConfig(
+        self.embed = nn.Embedding(vocab_size, embed, padding_idx=0)
+        cfg = xLSTMBlockStackConfig(
             mlstm_block=mLSTMBlockConfig(
-                mlstm=mLSTMLayerConfig(conv1d_kernel_size=4,qkv_proj_blocksize=4,num_heads=4)),
+                mlstm=mLSTMLayerConfig(conv1d_kernel_size=4, qkv_proj_blocksize=4, num_heads=4)
+            ),
             slstm_block=sLSTMBlockConfig(
-                slstm=sLSTMLayerConfig(backend='vanilla',num_heads=4,conv1d_kernel_size=4,bias_init='powerlaw_blockdependent'),
-                feedforward=FeedForwardConfig(proj_factor=1.3,act_fn='gelu')),
-            context_length=seq_len,num_blocks=blocks,embedding_dim=emb,slstm_at=[0])
-        self.core=xLSTMBlockStack(cfg)
-    def forward(self,seq): return self.core(self.embed(seq)).mean(dim=1)
+                slstm=sLSTMLayerConfig(backend="vanilla", num_heads=4, conv1d_kernel_size=4,
+                                       bias_init="powerlaw_blockdependent"),
+                feedforward=FeedForwardConfig(proj_factor=1.3, act_fn="gelu")
+            ),
+            context_length=seq_len,
+            num_blocks=blocks,
+            embedding_dim=embed,
+            slstm_at=[0]
+        )
+        self.xlstm = xLSTMBlockStack(cfg)
+        self.output_dim = embed
+
+    def forward(self, seq):
+        out = self.xlstm(self.embed(seq))
+        return out.mean(dim=1)
+
 
 class MLPClassifier(nn.Module):
-    def __init__(self,d_in,hidden=[128,64],drop=0.3):
+    def __init__(self, in_dim, hiddens=[128, 64], drop=0.3):
         super().__init__()
-        layers=[]; dims=[d_in]+hidden
-        for i in range(len(hidden)):
-            layers += [nn.Linear(dims[i],dims[i+1]), nn.ReLU(), nn.Dropout(drop)]
-        layers.append(nn.Linear(dims[-1],1))
-        self.net=nn.Sequential(*layers)
-    def forward(self,x): return self.net(x).squeeze(1)
+        layers = []
+        dims = [in_dim] + hiddens
+        for i in range(len(hiddens)):
+            layers.extend([nn.Linear(dims[i], dims[i+1]), nn.ReLU(), nn.Dropout(drop)])
+        layers.append(nn.Linear(dims[-1], 1))
+        self.mlp = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.mlp(x).squeeze(1)
+
 
 class MultiModalClassifier(nn.Module):
-    def __init__(self,genc,senc):
+    def __init__(self, graph_enc, seq_enc, fusion_h=128):
         super().__init__()
-        self.g,self.s = genc,senc
-        fused_dim = genc.c2.out_channels + senc.embed.embedding_dim
-        self.clf  = MLPClassifier(fused_dim)
-    def forward(self,g,seq):
-        return self.clf(torch.cat([self.g(g.x,g.edge_index,g.batch), self.s(seq)],dim=1))
+        self.graph_enc = graph_enc
+        self.seq_enc = seq_enc
+        fusion_dim = graph_enc.output_dim + seq_enc.output_dim
+        self.classifier = MLPClassifier(fusion_dim, [fusion_h, fusion_h // 2])
 
-# ───────────────────────────────────────────────────────────────
-# 3. Metric helpers --------------------------------------------
-# ───────────────────────────────────────────────────────────────
-def batch_accuracy(logits,labels):
-    return ((torch.sigmoid(logits)>0.5).float()==labels).sum().item() / labels.size(0)
+    def forward(self, g, seq):
+        g_emb = self.graph_enc(g.x, g.edge_index, g.batch)
+        s_emb = self.seq_enc(seq)
+        return self.classifier(torch.cat([g_emb, s_emb], dim=1))
 
-def train_epoch(model,loader,crit,opt,dev):
-    model.train(); tl=ta=0; n=0
-    for g,seq,l in loader:
-        g,seq,l=g.to(dev),seq.to(dev),l.to(dev); n+=l.size(0)
-        opt.zero_grad(); logits=model(g,seq); loss=crit(logits,l); loss.backward(); opt.step()
-        tl += loss.item()*l.size(0); ta += batch_accuracy(logits,l)*l.size(0)
-    return tl/n, ta/n
 
-def eval_epoch(model,loader,crit,dev):
-    model.eval(); tl=ta=0; n=0
+def train_epoch(model, loader, crit, opt, device):
+    model.train()
+    total_loss, correct, total = 0, 0, 0
+    for g, seq, labs in loader:
+        g, seq, labs = g.to(device), seq.to(device), labs.to(device)
+        opt.zero_grad()
+        logits = model(g, seq)
+        loss = crit(logits, labs)
+        loss.backward()
+        opt.step()
+        total_loss += loss.item() * labs.size(0)
+        preds = (torch.sigmoid(logits) > 0.5).float()
+        correct += (preds == labs).sum().item()
+        total += labs.size(0)
+    return total_loss / total, correct / total
+
+
+def eval_metrics(model, loader, crit, device):
+    model.eval()
+    total_loss = 0
+    all_preds, all_labels = [], []
     with torch.no_grad():
-        for g,seq,l in loader:
-            g,seq,l=g.to(dev),seq.to(dev),l.to(dev); n+=l.size(0)
-            logits=model(g,seq); loss=crit(logits,l)
-            tl += loss.item()*l.size(0); ta += batch_accuracy(logits,l)*l.size(0)
-    return tl/n, ta/n
+        for g, seq, labs in loader:
+            g, seq, labs = g.to(device), seq.to(device), labs.to(device)
+            logits = model(g, seq)
+            total_loss += crit(logits, labs).item() * labs.size(0)
+            preds = (torch.sigmoid(logits) > 0.5).float()
+            all_preds.extend(preds.cpu().tolist())
+            all_labels.extend(labs.cpu().tolist())
+    if len(set(all_labels)) < 2:
+        return {'loss': total_loss, 'acc': 0, 'tpr': 0, 'fpr': 0, 'f1': 0}
+    tn, fp, fn, tp = confusion_matrix(all_labels, all_preds).ravel()
+    total = tp + tn + fp + fn
+    return {
+        'loss': total_loss / total,
+        'acc': (tp + tn) / total,
+        'tpr': tp / (tp + fn + 1e-9),
+        'fpr': fp / (fp + tn + 1e-9),
+        'f1': f1_score(all_labels, all_preds)
+    }
 
-def f1_val(model,loader,dev):
-    model.eval(); allp,alll=[],[]
-    with torch.no_grad():
-        for g,seq,l in loader:
-            g,seq=g.to(dev),seq.to(dev)
-            allp.extend((torch.sigmoid(model(g,seq))>0.5).cpu().tolist())
-            alll.extend(l.tolist())
-    return f1_score(alll,allp)
 
-def test_metrics(model,loader,crit,dev):
-    model.eval(); tot=0; allp,alll=[],[]
-    with torch.no_grad():
-        for g,seq,l in loader:
-            g,seq,l=g.to(dev),seq.to(dev),l.to(dev)
-            tot+=crit(model(g,seq),l).item()*l.size(0)
-            allp+=(torch.sigmoid(model(g,seq))>0.5).cpu().tolist()
-            alll+=l.cpu().tolist()
-    tn,fp,fn,tp=confusion_matrix(alll,allp).ravel(); t=tp+tn+fp+fn
-    return {'loss':tot/t,'acc':(tp+tn)/t,'tpr':tp/(tp+fn+1e-9),
-            'fpr':fp/(fp+tn+1e-9),'f1':f1_score(alll,allp)}
+def survey_gcn_xlstm():
+    json_root = "/kaggle/input"
+    api_options = [1000]
+    seq_len_options = [2000]
+    base_pt_root = "/kaggle/input"
+    batch_size = 8
+    lr = 1e-3
+    epochs = 20
+    patience = 5
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'use {device}')
 
-# ───────────────────────────────────────────────────────────────
-# 4. Main -------------------------------------------------------
-# ───────────────────────────────────────────────────────────────
-def main():
-    json_root="/kaggle/input"
-    pt_root  ="/kaggle/input/1000-final/1000"
-    bs=8; lr=1e-3; max_len=1500; epochs=20; patience=5
-    dev=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # Thư mục output và cache vocab
+    output_dir = 'cache_and_bestmodel'
+    os.makedirs(output_dir, exist_ok=True)
+    vocab_path_save = os.path.join(output_dir, 'vocab.json')
+    have_vocab_path = os.path.join(json_root, 'vocab.json')
 
-    ds=MultiModalDataset(json_root,pt_root,max_len)
-    if len(ds)==0: raise RuntimeError("Empty dataset!")
+    for api_num in api_options:
+        pt_root = os.path.join(base_pt_root, f"{api_num}-final/{api_num}")
+        for seq_len in seq_len_options:
+            print(f"\n=== [API={api_num}] [SEQ_LEN={seq_len}] ===")
 
-    # stratified 70/15/15
-    y=[lbl for *_,lbl in ds.samples]
-    ss=StratifiedShuffleSplit(n_splits=1,test_size=0.30,random_state=42)
-    tr_idx,temp_idx = next(ss.split(range(len(ds)),y))
-    y_temp=[y[i] for i in temp_idx]
-    ss2=StratifiedShuffleSplit(n_splits=1,test_size=0.50,random_state=42)
-    va_rel,te_rel = next(ss2.split(temp_idx,y_temp))
-    va_idx=[temp_idx[i] for i in va_rel]; te_idx=[temp_idx[i] for i in te_rel]
+            # Load hoặc build dataset có cache vocab
+            if os.path.isfile(have_vocab_path):
+                print(f"[INFO] Loading cached vocab from {have_vocab_path}")
+                with open(have_vocab_path, 'r', encoding='utf-8') as f:
+                    cached_vocab = json.load(f)
+                ds = MultiModalDataset(json_root, pt_root,
+                                       max_seq_len=seq_len,
+                                       vocab=cached_vocab)
+            else:
+                print(f"[INFO] No cached vocab, build new and save at {vocab_path_save}")
+                ds = MultiModalDataset(json_root, pt_root,
+                                       max_seq_len=seq_len,
+                                       vocab_cache_path=vocab_path_save)
 
-    tr_ld=DataLoader(Subset(ds,tr_idx),bs,True,collate_fn=collate_fn)
-    va_ld=DataLoader(Subset(ds,va_idx),bs,False,collate_fn=collate_fn)
-    te_ld=DataLoader(Subset(ds,te_idx),bs,False,collate_fn=collate_fn)
+            print(f"[INFO] Found {len(ds)} samples")
+            if len(ds) < 10:
+                print("[WARNING] Not enough samples. Skipping...")
+                continue
 
-    g_dim=ds[0][0].x.size(1)
-    model=MultiModalClassifier(GCNEncoder(g_dim).to(dev),
-                               xLSTMEncoder(len(ds.vocab)).to(dev)).to(dev)
-    crit=nn.BCEWithLogitsLoss(); opt=torch.optim.Adam(model.parameters(),lr=lr)
+            # Stratified split
+            labels = [lbl for _, _, lbl in ds.samples]
+            outer = StratifiedShuffleSplit(n_splits=1, test_size=0.15, random_state=42)
+            train_val_idx, test_idx = next(outer.split(range(len(ds)), labels))
+            inner = StratifiedShuffleSplit(n_splits=1, test_size=0.17647, random_state=42)
+            y_tv = [labels[i] for i in train_val_idx]
+            tr_rel, val_rel = next(inner.split(train_val_idx, y_tv))
+            tr_idx = [train_val_idx[i] for i in tr_rel]
+            val_idx = [train_val_idx[i] for i in val_rel]
 
-    # tracking lists
-    tr_loss_hist, va_loss_hist, va_f1_hist = [], [], []
-    best_f1, no_imp = 0, 0
+            tr_loader = DataLoader(Subset(ds, tr_idx), batch_size, shuffle=True, collate_fn=collate_fn)
+            val_loader = DataLoader(Subset(ds, val_idx), batch_size, shuffle=False, collate_fn=collate_fn)
+            test_loader = DataLoader(Subset(ds, test_idx), batch_size, shuffle=False, collate_fn=collate_fn)
 
-    for ep in range(1,epochs+1):
-        tr_l,tr_a = train_epoch(model,tr_ld,crit,opt,dev)
-        va_l,va_a = eval_epoch(model,va_ld,crit,dev)
-        va_f       = f1_val(model,va_ld,dev)
-        tr_loss_hist.append(tr_l); va_loss_hist.append(va_l); va_f1_hist.append(va_f)
+            # Khởi tạo model
+            sample_g, _, _ = ds[0]
+            in_feats = sample_g.x.size(1)
+            graph_enc = GCNEncoder(in_feats).to(device)
+            seq_enc = xLSTMEncoder(len(ds.vocab), seq_len=seq_len).to(device)
+            model = MultiModalClassifier(graph_enc, seq_enc).to(device)
+            crit = nn.BCEWithLogitsLoss()
+            opt = torch.optim.Adam(model.parameters(), lr=lr)
 
-        print(f"Ep{ep:02d} | TrL {tr_l:.4f} | VaL {va_l:.4f} | VaF1 {va_f:.4f}")
+            # Training với early stopping
+            best_f1 = 0
+            no_improve = 0
+            best_state = None
+            for epoch in range(1, epochs + 1):
+                tr_loss, tr_acc = train_epoch(model, tr_loader, crit, opt, device)
+                val_met = eval_metrics(model, val_loader, crit, device)
+                print(f"[Epoch {epoch}] Train Loss={tr_loss:.4f}, Acc={tr_acc:.4f} | Val F1={val_met['f1']:.4f}")
+                if val_met['f1'] > best_f1:
+                    best_f1 = val_met['f1']
+                    best_state = (model.state_dict(), opt.state_dict())
+                    no_improve = 0
+                else:
+                    no_improve += 1
+                    if no_improve >= patience:
+                        print("Early stopping.")
+                        break
 
-        if va_f>best_f1:                           # improvement
-            best_f1=va_f; no_imp=0
-            torch.save(model.state_dict(),'best_multimodal.pth')
-        else:
-            no_imp+=1
-        if no_imp>=patience:
-            print("Early-stopping triggered.")
-            break
+            # Lưu model tốt nhất
+            if best_state:
+                model.load_state_dict(best_state[0])
+                model_file = os.path.join(output_dir,
+                    f"best_model_api{api_num}_seq{seq_len}.pth")
+                torch.save(model.state_dict(), model_file)
+                print(f"[INFO] Saved best model to {model_file}")
 
-    # ── load & test
-    model.load_state_dict(torch.load('best_multimodal.pth'))
-    tm=test_metrics(model,te_ld,crit,dev)
-    print("TEST:",tm)
+            # Đánh giá trên test set
+            test_met = eval_metrics(model, test_loader, crit, device)
+            print(f">>> TEST [API={api_num}] [SEQ_LEN={seq_len}] => "
+                  f"Loss={test_met['loss']:.4f}, Acc={test_met['acc']:.4f}, "
+                  f"TPR={test_met['tpr']:.4f}, FPR={test_met['fpr']:.4f}, F1={test_met['f1']:.4f}")
 
-    # ── plot learning curves
-    plt.figure(figsize=(8,4))
-    plt.subplot(1,2,1)
-    plt.plot(tr_loss_hist,label='Train'); plt.plot(va_loss_hist,label='Val')
-    plt.title('Loss'); plt.xlabel('Epoch'); plt.legend(); plt.grid(True)
-    plt.subplot(1,2,2)
-    plt.plot(va_f1_hist,label='Val F1'); plt.title('Validation F1')
-    plt.xlabel('Epoch'); plt.legend(); plt.grid(True)
-    plt.tight_layout(); plt.savefig('learning_curves.png',dpi=300)
 
-if __name__=='__main__':
-    main()
+if __name__ == '__main__':
+    survey_gcn_xlstm()
