@@ -5,7 +5,7 @@ from torch_geometric.data import Batch
 from torch_geometric.utils import add_self_loops
 import torch
 
-# ---- các module riêng của bạn ----
+# ---- các module ----
 from tmp import extract_features
 from test import build_ransomware_graph, sanitize_and_save_graph
 from gen_pt import graphml_to_pyg_data
@@ -18,7 +18,7 @@ from multimodal import GCNEncoder, xLSTMEncoder, MultiModalClassifier
 CUCKOO_API = "http://192.168.111.158:8090"
 SEQ_LEN, API_LIMIT = 2000, 1000
 THRESH = 0.5                         # ngưỡng phân loại
-USE_GPU = False                      # đổi True nếu đã set CUDA_HOME
+USE_GPU = True                      # đổi True nếu đã set CUDA_HOME
 DEVICE  = torch.device("cuda" if USE_GPU and torch.cuda.is_available() else "cpu")
 
 @st.cache_resource(show_spinner=False)
