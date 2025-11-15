@@ -51,11 +51,12 @@ def build_ransomware_graph(report_path: str) -> nx.DiGraph:
     # 6) Process nodes & calls edges
     for p in report.get('processes', []):
         pid = p['pid']
-        pn = f"process:{pid}"
+        pn = f"process:{pid}:{p.get('name','')}"
         G.add_node(pn,
                    node_type='process',
                    pid=pid,
-                   name=p.get('name',''),
+                   #name=p.get('name',''),
+                   process_name = p.get('name',''),
                    path=p.get('path',''),
                    cmdline=p.get('cmdline',''))
         for nid, call in api_nodes:
@@ -138,7 +139,7 @@ def build_ransomware_graph(report_path: str) -> nx.DiGraph:
         sn = f"signature:{name}"
         G.add_node(sn,
                    node_type='signature',
-                   name=name,
+                   signature_name=name,
                    description=sig.get('description',''),
                    severity=sig.get('severity',''))
         for mark in sig.get('marks', []):
@@ -284,8 +285,8 @@ def process_single_report(args):
         return f"ERROR: {basename} → {e}"
 
 def batch_build_graphs_multithread(
-    reports_dir='reports_tmp/benign',
-    out_dir='graph_1500_api/benign',
+    reports_dir='after',
+    out_dir='graph_after1_api',
     max_workers=None
 ):
     """
