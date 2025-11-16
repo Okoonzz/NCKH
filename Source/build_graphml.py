@@ -51,7 +51,7 @@ def build_ransomware_graph(report_path: str) -> nx.DiGraph:
     # 6) Process nodes & calls edges
     for p in report.get('processes', []):
         pid = p['pid']
-        pn = f"process:{pid}:{p.get('name','')}"
+        pn = f"process:{pid}:{p.get('path','')}"
         G.add_node(pn,
                    node_type='process',
                    pid=pid,
@@ -326,3 +326,4 @@ if __name__ == '__main__':
     # Muốn tăng/giảm số luồng, chỉ cần sửa max_workers.
     # Ví dụ: max_workers=4, max_workers=None (Python sẽ tự chọn số luồng = CPU count).
     batch_build_graphs_multithread(max_workers=None)
+
