@@ -1,6 +1,5 @@
 import os
 import glob
-import re
 import json
 import networkx as nx
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -51,7 +50,7 @@ def build_ransomware_graph(report_path: str) -> nx.DiGraph:
     # 6) Process nodes & calls edges
     for p in report.get('processes', []):
         pid = p['pid']
-        pn = f"process:{pid}:{p.get('path','')}"
+        pn = f"process:{pid}"
         G.add_node(pn,
                    node_type='process',
                    pid=pid,
@@ -278,6 +277,9 @@ def process_single_report(args):
     basename = os.path.splitext(os.path.basename(report_path))[0]
     try:
         G = build_ransomware_graph(report_path)
+        isolated_nodes = list(nx.isolates(G))
+        if isolated_nodes:
+            G.remove_nodes_from(isolated_nodes)
         out_path = os.path.join(out_dir, f"{basename}.graphml")
         sanitize_and_save_graph(G, out_path)
         return f"OK: {basename}"
@@ -285,8 +287,8 @@ def process_single_report(args):
         return f"ERROR: {basename} → {e}"
 
 def batch_build_graphs_multithread(
-    reports_dir='after',
-    out_dir='graph_after1_api',
+    reports_dir='2025_103_extracted/ransomware',
+    out_dir='graph_2025_1033_reports/ransomware',
     max_workers=None
 ):
     """
@@ -326,4 +328,3 @@ if __name__ == '__main__':
     # Muốn tăng/giảm số luồng, chỉ cần sửa max_workers.
     # Ví dụ: max_workers=4, max_workers=None (Python sẽ tự chọn số luồng = CPU count).
     batch_build_graphs_multithread(max_workers=None)
-
