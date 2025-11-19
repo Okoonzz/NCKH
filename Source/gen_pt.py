@@ -80,8 +80,7 @@ def graphml_to_pyg_data(path):
             elif nt == 'dropped_file':
                 parts.extend([
                     f"filepath:{data.get('filepath','')}",
-                    f"md5:{data.get('md5','')}",
-                    f"size:{data.get('size',0)}"
+                    f"md5:{data.get('md5','')}"
                 ])
             elif nt == 'network':
                 parts.append(f"category:{data.get('category','')}")
@@ -132,3 +131,4 @@ if __name__ == '__main__':
         os.getenv('GRAPHML_DIR', 'graph_2025_103_reports'),
         ['ransomware']
     )
+
