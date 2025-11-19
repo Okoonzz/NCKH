@@ -12,7 +12,7 @@ print("Choose embedding model:")
 print("1: DistilBERT (distilbert-base-uncased)")
 
 EMBED_MODEL = 'distilbert-base-uncased'
-OUTPUT_DIR = 'pyg_data_DistilBERT_api500'
+OUTPUT_DIR = 'pyg_data_DistilBERT_103_2025'
 print(f"Selected model: {EMBED_MODEL}")
 print(f"Output directory: {OUTPUT_DIR}")
 # ---------------------------------------------------------
@@ -73,13 +73,14 @@ def graphml_to_pyg_data(path):
                 parts.append(f"args:{data.get('arguments','{}')}")
             elif nt == 'process':
                 parts.extend([
-                    f"name:{data.get('name','')}",
+                    f"name:{data.get('process_name','')}",
                     f"path:{data.get('path','')}",
                     f"cmdline:{data.get('cmdline','')}"
                 ])
             elif nt == 'dropped_file':
                 parts.extend([
                     f"filepath:{data.get('filepath','')}",
+                    f"md5:{data.get('md5','')}",
                     f"size:{data.get('size',0)}"
                 ])
             elif nt == 'network':
@@ -87,7 +88,7 @@ def graphml_to_pyg_data(path):
                 parts.append(json.dumps(json.loads(data.get('details','{}')), ensure_ascii=False))
             elif nt == 'signature':
                 parts.extend([
-                    f"name:{data.get('name','')}",
+                    f"name:{data.get('signature_name','')}",
                     f"description:{data.get('description','')}",
                     f"severity:{data.get('severity',0)}"
                 ])
@@ -128,6 +129,6 @@ def batch_convert(graphml_dir, subdirs):
 
 if __name__ == '__main__':
     batch_convert(
-        os.getenv('GRAPHML_DIR', 'graph_500_api'),
-        ['benign']
+        os.getenv('GRAPHML_DIR', 'graph_2025_103_reports'),
+        ['ransomware']
     )
